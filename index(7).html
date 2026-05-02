@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>تحدي التربية الإسلامية - النسخة الشاملة</title>
+    <style>
+        :root {
+            --bg-color: #0d1117;
+            --card-bg: #161b22;
+            --accent-color: #00ffaa;
+            --text-color: #ffffff;
+        }
+
+        body {
+            margin: 0;
+            background: var(--bg-color);
+            color: var(--text-color);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        #ui {
+            width: 90%;
+            max-width: 650px;
+            background: var(--card-bg);
+            padding: 30px;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            text-align: center;
+        }
+
+        h2 { color: var(--accent-color); margin-bottom: 20px; }
+        #question { font-size: 22px; margin-bottom: 20px; min-height: 60px; line-height: 1.6; }
+
+        .options-grid { display: flex; flex-direction: column; gap: 10px; }
+        .option {
+            background: #21262d;
+            padding: 15px;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: 0.2s;
+            border: 1px solid #30363d;
+            font-size: 18px;
+            /* تعديل: جعل النص في المنتصف */
+            text-align: center; 
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .option:hover { background: #30363d; border-color: var(--accent-color); }
+
+        #timer { font-size: 22px; color: #ffcc00; margin: 15px 0; font-weight: bold; }
+        
+        .btn-restart {
+            margin-top: 20px;
+            padding: 12px 30px;
+            border: none;
+            border-radius: 8px;
+            background: var(--accent-color);
+            color: #000;
+            font-weight: bold;
+            cursor: pointer;
+            display: none;
+            font-size: 18px;
+        }
+
+        #leaderboard {
+            margin-top: 25px;
+            padding-top: 15px;
+            border-top: 1px solid #30363d;
+            text-align: center;
+        }
+        .rank-item { background: rgba(0, 255, 170, 0.1); padding: 8px; margin: 5px 0; border-radius: 5px; }
+    </style>
+</head>
+<body>
+
+<div id="ui">
+    <h2>🎮 تحدي التربية الإسلامية الشامل</h2>
+    
+    <div id="game-container">
+        <div id="question">جاري التحميل...</div>
+        <div id="options" class="options-grid"></div>
+        <div id="timer">⏱ 10</div>
+    </div>
+
+    <div id="result-container">
+        <div id="final-msg"></div>
+        <button id="restart-btn" class="btn-restart" onclick="restartGame()">🔄 العب مرة أخرى</button>
+    </div>
+
+    <div id="leaderboard"></div>
+</div>
+
+<script>
+// --- الأصوات ---
+const successSound = new Audio("https://actions.google.com/sounds/v1/human_voices/applause.ogg");
+const errorSound = new Audio("https://actions.google.com/sounds/v1/alarms/beep_short.ogg");
+const winSound = new Audio("https://actions.google.com/sounds/v1/cartoon/clown_horn_accent.ogg");
+
+// --- بنك الأسئلة (33 سؤالاً) ---
+const quiz = [
+    {q:"ما تعريف الإيمان؟", options:["تصديق جازم يؤثر في السلوك","مجرد معرفة عقلية","إحساس داخلي فقط"], correct:0},
+    {q:"ما المقصود باليقين؟", options:["علم ثابت جازم بلا شك","علم مع احتمال الشك","الظن الغالب"], correct:0},
+    {q:"ما تعريف الأسرة؟", options:["نواة المجتمع وأساس صلاحه","مجموعة أفراد يسكنون معاً","شركة اقتصادية مصغرة"], correct:0},
+    {q:"ما تعريف الزواج؟", options:["ميثاق شرعي دائم قوامه المودة والرحمة","علاقة تعاقدية مؤقتة","اتفاق اجتماعي بسيط"], correct:0},
+    {q:"ما تعريف الطلاق؟", options:["حل ميثاق الزوجية يمارسه الزوج أو الزوجة تحت مراقبة القضاء","استمرار الحياة الزوجية","خطبة امرأة جديدة"], correct:0},
+    {q:"ما معنى الكفاءة؟", options:["الجدارة والاستحقاق","الضعف والاستسلام","الحظ والصدفة"], correct:0},
+    {q:"ما معنى العفو؟", options:["ترك العقوبة مع القدرة عليها","العجز عن العقاب","الهروب من المواجهة"], correct:0},
+    {q:"ما نوع صبر يوسف عليه السلام؟", options:["صبر عن المعصية","صبر على الطاعة فقط","لا يصنف كصبر"], correct:0},
+    {q:"ما نوع صبر يعقوب عليه السلام؟", options:["صبر على الابتلاء (فقد الأبناء)","صبر عن المعصية","صبر مهني"], correct:0},
+    {q:"ما أركان الزواج الأساسية؟", options:["الزوجان والصداق والولي والصيغة","النية والمال فقط","العزيمة والوليمة"], correct:0},
+    {q:"ما هي عدة المرأة الحامل؟", options:["حتى تضع حملها","ثلاثة أشهر قمرية","سنة كاملة"], correct:0},
+    {q:"ما عدة المرأة التي تحيض؟", options:["ثلاثة قروء (أطهار)","شهر واحد","تسعون يوماً"], correct:0},
+    {q:"ما حكم الطلاق في وقت الحيض؟", options:["طلاق بدعي ومخالف للسنة","جائز ومستحب","واجب شرعي"], correct:0},
+    {q:"ما طبيعة العلاقة بين العلم والإيمان؟", options:["علاقة تكامل وترابط","علاقة تعارض وتضاد","لا توجد أي علاقة بينهما"], correct:0},
+    {q:"ما هو أثر الإيمان بالغيب؟", options:["تحسين السلوك والاستقامة","لا تأثير له على الواقع","إضعاف الشخصية"], correct:0},
+    {q:"بماذا اشتهر الصحابي عثمان بن عفان؟", options:["الحياء والجود والبذل","البخل الشديد","الشدة في التعامل"], correct:0},
+    {q:"ما هي أهم نتائج صلح الحديبية؟", options:["حقن الدماء ونشر الإسلام","إعلان الحرب الشاملة","ضعف شوكة المسلمين"], correct:0},
+    {q:"ما حكم تزويج الفتاة دون رضاها؟", options:["غير مقبول شرعاً وباطل","مقبول وواجب","أمر ثانوي لا يهم"], correct:0},
+    {q:"ما حكم الطلاق من غير سبب شرعي؟", options:["حرام أو مذموم شرعاً","مستحب جداً","واجب يومي"], correct:0},
+    {q:"ما الفائدة الكبرى من الشورى؟", options:["تدبير الخلاف وتحمل المسؤولية","فرض رأي القوي","إضاعة الوقت في الجدال"], correct:0},
+    {q:"ما هو أثر العفة على الفرد؟", options:["حماية المجتمع وحفظ الأعراض","إثارة الفوضى","ضعف الروابط"], correct:0},
+    {q:"ما دور العلم الصحيح في حياة المؤمن؟", options:["تعزيز الإيمان وترسيخه","إضعاف الوازع الديني","مجرد ترف فكري"], correct:0},
+    {q:"ما أثر المسؤولية في حياة الفرد؟", options:["تحمل الواجبات وتحقيق الاستقرار","الهروب من الواقع","نشر الاتكالية"], correct:0},
+    {q:"ما المقصود بالفلسفة الراشدة؟", options:["الجمع بين نظر العقل ونور الوحي","الاعتماد على العقل وحده","رفض التفكير المنطقي"], correct:0},
+    {q:"كيف تحفظ العفة حق الغير؟", options:["بمنع الاعتداء على الحرمات","بتقييد حرية الآخرين","بإضعاف قوة المجتمع"], correct:0},
+    {q:"ما أهمية التنازل الإيجابي في التفاوض؟", options:["تحقيق التوافق والسلم","دليل على الهزيمة","فرض الشروط بالقوة"], correct:0},
+    {q:"ما هو مثال الفاحشة الباطنة؟", options:["الحسد والغل والرياء","الزنا والسرقة","القذف العلني"], correct:0},
+    {q:"لماذا أمر الإسلام بالاعتدال في البيئة؟", options:["لحمايتها وضمان استدامتها","لمنع الناس من الاستمتاع بها","لأنها غير مهمة"], correct:0},
+    {q:"ماذا يجب في الطلاق البائن بينونة صغرى؟", options:["عقد ومهر جديدان برضاها","رجوع فوري بلا عقد","لا يمكن الرجوع أبداً"], correct:0},
+    {q:"كيف كان حال الرسول ﷺ مع أهله؟", options:["كان في مهنة أهله يخدمهم","كان يترفع عن خدمتهم","كان يشدد عليهم دائماً"], correct:0},
+    {q:"من هم السبعة الذين يظلهم الله؟", options:["شاب نشأ في طاعة الله","رجل غني لم يتصدق","محارب بلا نية"], correct:0},
+    {q:"ما أهمية حق الطفل في التعلم؟", options:["تنمية قدراته وبناء مستقبله","إشغاله عن اللعب فقط","مرحلة اختيارية غير هامة"], correct:0},
+    {q:"ما دور الإنسان الكفء في عمارة الأرض؟", options:["الإصلاح والإتقان والبناء","الإهمال وتبديد الثروات","إثارة الفوضى في الكون"], correct:0}
+];
+
+let player = prompt("أدخل اسمك الكريم:") || "بطل التحدي";
+let index = 0, score = 0, timer, timeLeft = 10;
+
+function shuffleArray(array) {
+    for (let i = array.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [array[i], array[j]] = [array[j], array[i]];
+    }
+}
+
+function loadQuestion() {
+    if (index >= quiz.length) {
+        endGame();
+        return;
+    }
+
+    clearInterval(timer);
+    timeLeft = 10;
+    document.getElementById("timer").innerText = "⏱ " + timeLeft;
+    document.getElementById("game-container").style.display = "block";
+    document.getElementById("restart-btn").style.display = "none";
+    document.getElementById("final-msg").innerHTML = "";
+
+    let currentQ = quiz[index];
+    let optionsObjects = currentQ.options.map((opt, i) => ({ text: opt, isCorrect: i === currentQ.correct }));
+    shuffleArray(optionsObjects);
+    
+    document.getElementById("question").innerText = `س${index + 1}: ${currentQ.q}`;
+    let optionsHtml = "";
+    optionsObjects.forEach((opt) => {
+        optionsHtml += `<div class="option" onclick="checkAnswer(${opt.isCorrect})">${opt.text}</div>`;
+    });
+    document.getElementById("options").innerHTML = optionsHtml;
+
+    timer = setInterval(() => {
+        timeLeft--;
+        document.getElementById("timer").innerText = "⏱ " + timeLeft;
+        if (timeLeft <= 0) {
+            clearInterval(timer);
+            errorSound.play();
+            index++;
+            loadQuestion();
+        }
+    }, 1000);
+}
+
+function checkAnswer(isCorrect) {
+    clearInterval(timer);
+    if (isCorrect) {
+        score++;
+        successSound.currentTime = 0; 
+        successSound.play().catch(e => {});
+    } else {
+        errorSound.currentTime = 0;
+        errorSound.play().catch(e => {});
+    }
+    index++;
+    setTimeout(loadQuestion, 500);
+}
+
+function endGame() {
+    document.getElementById("game-container").style.display = "none";
+    document.getElementById("final-msg").innerHTML = `<h3>أحسنت يا ${player}!</h3><h1>النتيجة: ${score} من 33</h1>`;
+    document.getElementById("restart-btn").style.display = "inline-block";
+    
+    setTimeout(() => {
+        successSound.play();
+        winSound.play();
+    }, 200);
+    
+    saveScore();
+}
+
+function saveScore() {
+    let scores = JSON.parse(localStorage.getItem("islamic_vfinal_ranks") || "[]");
+    scores.push({ name: player, score: score });
+    scores.sort((a, b) => b.score - a.score);
+    scores = scores.slice(0, 5);
+    localStorage.setItem("islamic_vfinal_ranks", JSON.stringify(scores));
+
+    let html = "<h3>🏆 المتصدرون</h3>";
+    scores.forEach((s, i) => {
+        html += `<div class="rank-item">${i + 1}. ${s.name} - ${s.score} نقطة</div>`;
+    });
+    document.getElementById("leaderboard").innerHTML = html;
+}
+
+function restartGame() {
+    index = 0;
+    score = 0;
+    document.getElementById("leaderboard").innerHTML = "";
+    loadQuestion();
+}
+
+window.onload = loadQuestion;
+</script>
+</body>
+</html>
